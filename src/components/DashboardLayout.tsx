@@ -4,15 +4,16 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
-import { 
-  LayoutDashboard, 
-  Layers, 
-  CircleHelp, 
-  LogOut, 
+import {
+  LayoutDashboard,
+  Layers,
+  CircleHelp,
+  LogOut,
   ShieldCheck,
   ChevronRight,
   Sun,
-  Moon
+  Moon,
+  Users
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
@@ -26,6 +27,7 @@ const navItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Categories', href: '/dashboard/categories', icon: Layers },
   { name: 'Questions', href: '/dashboard/questions', icon: CircleHelp },
+  { name: 'Users', href: '/dashboard/users', icon: Users },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -50,21 +52,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {navItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
             return (
-              <Link 
-                key={item.name} 
+              <Link
+                key={item.name}
                 href={item.href}
                 className={cn(
                   "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative",
-                  isActive 
-                    ? "bg-primary/10 text-primary border border-primary/20" 
+                  isActive
+                    ? "bg-primary/10 text-primary border border-primary/20"
                     : "text-text-muted hover:text-foreground hover:bg-surface/80"
                 )}
               >
                 <item.icon className={cn("w-5 h-5", isActive ? "text-primary" : "text-text-muted group-hover:text-foreground")} />
                 <span className="font-medium">{item.name}</span>
                 {isActive && (
-                  <motion.div 
-                    layoutId="active-pill" 
+                  <motion.div
+                    layoutId="active-pill"
                     className="absolute right-4"
                   >
                     <ChevronRight className="w-4 h-4" />
@@ -76,7 +78,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </nav>
 
         <div className="p-4 border-t border-border">
-          <button 
+          <button
             onClick={toggleTheme}
             className="w-full flex items-center gap-3 px-4 py-3 mb-2 rounded-xl text-text-muted hover:text-foreground hover:bg-surface/80 transition-all group"
           >
@@ -92,7 +94,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </>
             )}
           </button>
-          <Link 
+          <Link
             href="/dashboard/profile"
             className="flex items-center gap-3 px-4 py-3 mb-2 rounded-xl hover:bg-surface/80 transition-all group"
           >
@@ -105,7 +107,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
             <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-primary transition-colors" />
           </Link>
-          <button 
+          <button
             onClick={logout}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-text-muted hover:text-red-400 hover:bg-red-400/5 transition-all group"
           >

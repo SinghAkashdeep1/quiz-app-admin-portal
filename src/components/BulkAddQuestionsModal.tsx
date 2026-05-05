@@ -19,6 +19,7 @@ interface BulkQuestion {
   imageUrl?: string;
   options: string[];
   correctAnswerIndex: number;
+  difficulty: 'easy' | 'medium' | 'hard';
   collapsed: boolean;
 }
 
@@ -29,14 +30,22 @@ interface Props {
   onSuccess: () => void;
 }
 
-const emptyQuestion = (categoryId: string): BulkQuestion => ({
-  id: crypto.randomUUID(),
+const generateId = () => {
+  if (typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID) {
+    return window.crypto.randomUUID();
+  }
+  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+};
+
+const emptyQuestion = (categoryId: string, difficulty: 'easy' | 'medium' | 'hard' = 'easy'): BulkQuestion => ({
+  id: generateId(),
   categoryId,
   type: 'mcq',
   text: '',
   imageUrl: '',
   options: ['', '', '', ''],
   correctAnswerIndex: 0,
+  difficulty,
   collapsed: false,
 });
 
@@ -49,9 +58,17 @@ export default function BulkAddQuestionsModal({ open, onClose, categories, onSuc
   const [submitting, setSubmitting] = useState(false);
   const [globalCategory, setGlobalCategory] = useState(defaultCat);
   const [useGlobalCategory, setUseGlobalCategory] = useState(true);
+  const [globalDifficulty, setGlobalDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
+  const [useGlobalDifficulty, setUseGlobalDifficulty] = useState(true);
 
   const addQuestion = () => {
-    setQuestions(prev => [...prev, emptyQuestion(useGlobalCategory ? globalCategory : defaultCat)]);
+    setQuestions(prev => [
+      ...prev, 
+      emptyQuestion(
+        useGlobalCategory ? globalCategory : defaultCat,
+        useGlobalDifficulty ? globalDifficulty : 'easy'
+      )
+    ]);
   };
 
   const removeQuestion = (id: string) => {
@@ -109,6 +126,13 @@ export default function BulkAddQuestionsModal({ open, onClose, categories, onSuc
     }
   };
 
+  const handleGlobalDifficultyChange = (diff: 'easy' | 'medium' | 'hard') => {
+    setGlobalDifficulty(diff);
+    if (useGlobalDifficulty) {
+      setQuestions(prev => prev.map(q => ({ ...q, difficulty: diff })));
+    }
+  };
+
   const handleSubmit = async () => {
     // Validate
     for (let i = 0; i < questions.length; i++) {
@@ -141,13 +165,17 @@ export default function BulkAddQuestionsModal({ open, onClose, categories, onSuc
         imageUrl: q.imageUrl,
         options: q.type === 'boolean' ? q.options.slice(0, 2) : q.options,
         correctAnswerIndex: q.correctAnswerIndex,
+        difficulty: q.difficulty,
       }));
       const res = await api.post('/questions/bulk', { questions: payload });
       toast.success(`${res.data.count} questions added successfully!`);
       onSuccess();
       onClose();
       // Reset
-      setQuestions([emptyQuestion(defaultCat), emptyQuestion(defaultCat)]);
+      setQuestions([
+        emptyQuestion(defaultCat, globalDifficulty), 
+        emptyQuestion(defaultCat, globalDifficulty)
+      ]);
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Bulk add failed');
     } finally {
@@ -210,6 +238,34 @@ export default function BulkAddQuestionsModal({ open, onClose, categories, onSuc
                 ))}
               </select>
             )}
+
+            <div className="w-px h-6 bg-border mx-2 hidden md:block"></div>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useGlobalDifficulty}
+                onChange={(e) => {
+                  setUseGlobalDifficulty(e.target.checked);
+                  if (e.target.checked) {
+                    setQuestions(prev => prev.map(q => ({ ...q, difficulty: globalDifficulty })));
+                  }
+                }}
+                className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary"
+              />
+              <span className="text-sm font-medium text-foreground">Same difficulty for all</span>
+            </label>
+            {useGlobalDifficulty && (
+              <select
+                value={globalDifficulty}
+                onChange={(e) => handleGlobalDifficultyChange(e.target.value as any)}
+                className="bg-background border border-border rounded-lg px-4 py-2 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+            )}
           </div>
         </div>
 
@@ -251,22 +307,37 @@ export default function BulkAddQuestionsModal({ open, onClose, categories, onSuc
                 {/* Collapsible body */}
                 {!q.collapsed && (
                   <div className="p-5 space-y-4">
-                    {/* Category (if not global) */}
-                    {!useGlobalCategory && (
-                      <div>
-                        <label className="block text-xs font-medium text-text-muted mb-1">Category</label>
-                        <select
-                          value={q.categoryId}
-                          onChange={(e) => updateQuestion(q.id, 'categoryId', e.target.value)}
-                          className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                        >
-                          <option value="" disabled>Select category</option>
-                          {categories.map(cat => (
-                            <option key={cat._id} value={cat._id}>{cat.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
+                    <div className="grid grid-cols-2 gap-4">
+                      {!useGlobalCategory && (
+                        <div>
+                          <label className="block text-xs font-medium text-text-muted mb-1">Category</label>
+                          <select
+                            value={q.categoryId}
+                            onChange={(e) => updateQuestion(q.id, 'categoryId', e.target.value)}
+                            className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                          >
+                            <option value="" disabled>Select category</option>
+                            {categories.map(cat => (
+                              <option key={cat._id} value={cat._id}>{cat.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                      {!useGlobalDifficulty && (
+                        <div>
+                          <label className="block text-xs font-medium text-text-muted mb-1">Difficulty</label>
+                          <select
+                            value={q.difficulty}
+                            onChange={(e) => updateQuestion(q.id, 'difficulty', e.target.value)}
+                            className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                          >
+                            <option value="easy">Easy</option>
+                            <option value="medium">Medium</option>
+                            <option value="hard">Hard</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -298,9 +369,9 @@ export default function BulkAddQuestionsModal({ open, onClose, categories, onSuc
                           <label className="block text-xs font-medium text-text-muted mb-1">Question Image</label>
                           <div className="flex items-center gap-3">
                             {q.imageUrl && (
-                              <img 
-                                src={`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000'}${q.imageUrl}`} 
-                                alt="Preview" 
+                              <img
+                                src={`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000'}${q.imageUrl}`}
+                                alt="Preview"
                                 className="w-9 h-9 rounded-lg object-cover border border-border"
                               />
                             )}
@@ -335,23 +406,23 @@ export default function BulkAddQuestionsModal({ open, onClose, categories, onSuc
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {q.options.map((opt, optIdx) => (
                         q.type === 'boolean' && optIdx > 1 ? null : (
-                        <div key={optIdx} className="flex gap-2 items-center">
-                          <input
-                            type="radio"
-                            name={`correct-${q.id}`}
-                            checked={q.correctAnswerIndex === optIdx}
-                            onChange={() => updateQuestion(q.id, 'correctAnswerIndex', optIdx)}
-                            className="w-4 h-4 text-primary bg-surface border-border focus:ring-primary flex-shrink-0"
-                          />
-                          <input
-                            type="text"
-                            value={opt}
-                            readOnly={q.type === 'boolean'}
-                            onChange={(e) => updateOption(q.id, optIdx, e.target.value)}
-                            className={`flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-foreground text-sm placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-primary ${q.type === 'boolean' ? 'opacity-70 cursor-not-allowed' : ''}`}
-                            placeholder={`Option ${String.fromCharCode(65 + optIdx)}`}
-                          />
-                        </div>
+                          <div key={optIdx} className="flex gap-2 items-center">
+                            <input
+                              type="radio"
+                              name={`correct-${q.id}`}
+                              checked={q.correctAnswerIndex === optIdx}
+                              onChange={() => updateQuestion(q.id, 'correctAnswerIndex', optIdx)}
+                              className="w-4 h-4 text-primary bg-surface border-border focus:ring-primary flex-shrink-0"
+                            />
+                            <input
+                              type="text"
+                              value={opt}
+                              readOnly={q.type === 'boolean'}
+                              onChange={(e) => updateOption(q.id, optIdx, e.target.value)}
+                              className={`flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-foreground text-sm placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-primary ${q.type === 'boolean' ? 'opacity-70 cursor-not-allowed' : ''}`}
+                              placeholder={`Option ${String.fromCharCode(65 + optIdx)}`}
+                            />
+                          </div>
                         )
                       ))}
                     </div>

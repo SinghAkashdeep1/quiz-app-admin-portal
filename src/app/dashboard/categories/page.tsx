@@ -8,12 +8,44 @@ import { Plus, Edit2, Trash2, Tag, Loader2, AlertTriangle, X } from 'lucide-reac
 import Pagination from '@/components/Pagination';
 import toast, { Toaster } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Skeleton, CategorySkeleton } from '@/components/Skeleton';
+
+const ITEMS_PER_PAGE = 9;
 
 interface Category {
   _id: string;
   name: string;
   icon: string;
   color: string;
+  isGuestAllowed: boolean;
+  maxGuestAttempts: number;
+  guestAccess?: {
+    easy: boolean;
+    medium: boolean;
+    hard: boolean;
+  };
+  guestCreditLimit?: number;
+  rewards?: {
+    easy: number;
+    medium: number;
+    hard: number;
+  };
+  guestHeartsConfig?: {
+    maxHearts: number;
+    refillCount: number;
+    refillCooldownHours: number;
+    dailyRefillLimit?: number;
+    rewards: {
+      easy: number;
+      medium: number;
+      hard: number;
+    };
+  };
+  translations?: {
+    [key: string]: {
+      name: string;
+    };
+  };
 }
 
 interface Icon {
@@ -24,18 +56,52 @@ interface Icon {
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [icons, setIcons] = useState<Icon[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pageLoading, setPageLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [formData, setFormData] = useState({ name: '', icon: '', color: '#3B82F6' });
+  const [formData, setFormData] = useState({
+    name: '',
+    icon: '',
+    color: '#3B82F6',
+    isGuestAllowed: true,
+    maxGuestAttempts: 3,
+    guestAccess: {
+      easy: true,
+      medium: false,
+      hard: false,
+    },
+    guestCreditLimit: 3,
+    rewards: {
+      easy: 10,
+      medium: 20,
+      hard: 50
+    },
+    guestHeartsConfig: {
+      maxHearts: 3,
+      refillCount: 3,
+      refillCooldownHours: 14,
+      dailyRefillLimit: 3,
+      rewards: {
+        easy: 1,
+        medium: 2,
+        hard: 3
+      }
+    },
+    translations: {
+      hi: { name: '' },
+      es: { name: '' },
+      fr: { name: '' }
+    }
+  });
   const [submitting, setSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 10;
-  
+
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -55,29 +121,103 @@ export default function CategoriesPage() {
     try {
       const response = await api.get('/categories/icons');
       setIcons(response.data);
-    } catch (error) {
-      console.error('Failed to fetch icons');
+    } catch (error: any) {
+      console.error('Failed to fetch icons', error);
+      toast.error(error.response?.data?.message || 'Failed to load icons');
     }
   };
 
-  const fetchCategories = async () => {
+  const fetchCategories = async (showLoading = true) => {
+    if (showLoading) setPageLoading(true);
     try {
-      const response = await api.get('/categories');
-      setCategories(response.data);
+      const response = await api.get(`/categories?paginated=true&page=${currentPage}&limit=${ITEMS_PER_PAGE}`);
+      setCategories(response.data.categories);
+      setTotalCount(response.data.totalCount);
     } catch (error) {
       toast.error('Failed to fetch categories');
     } finally {
       setLoading(false);
+      setPageLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchCategories();
+  }, [currentPage]);
 
   const handleOpenModal = (category: Category | null = null) => {
     if (category) {
       setEditingCategory(category);
-      setFormData({ name: category.name, icon: category.icon, color: category.color });
+      setFormData({
+        name: category.name,
+        icon: category.icon,
+        color: category.color,
+        isGuestAllowed: category.isGuestAllowed ?? true,
+        maxGuestAttempts: category.maxGuestAttempts ?? 3,
+        guestAccess: category.guestAccess || {
+          easy: true,
+          medium: false,
+          hard: false,
+        },
+        guestCreditLimit: (category as any).guestCreditLimit ?? 3,
+        rewards: (category as any).rewards || {
+          easy: 10,
+          medium: 20,
+          hard: 50
+        },
+        guestHeartsConfig: category.guestHeartsConfig || {
+          maxHearts: 3,
+          refillCount: 3,
+          refillCooldownHours: 14,
+          dailyRefillLimit: 3,
+          rewards: {
+            easy: 1,
+            medium: 2,
+            hard: 3
+          }
+        },
+        translations: category.translations || {
+          hi: { name: '' },
+          es: { name: '' },
+          fr: { name: '' }
+        }
+      });
     } else {
       setEditingCategory(null);
-      setFormData({ name: '', icon: icons[0]?.name || '', color: '#3B82F6' });
+      setFormData({
+        name: '',
+        icon: icons[0]?.name || '',
+        color: '#3B82F6',
+        isGuestAllowed: true,
+        maxGuestAttempts: 3,
+        guestAccess: {
+          easy: true,
+          medium: false,
+          hard: false,
+        },
+        guestCreditLimit: 3,
+        rewards: {
+          easy: 10,
+          medium: 20,
+          hard: 50
+        },
+        guestHeartsConfig: {
+          maxHearts: 3,
+          refillCount: 3,
+          refillCooldownHours: 14,
+          dailyRefillLimit: 3,
+          rewards: {
+            easy: 1,
+            medium: 2,
+            hard: 3
+          }
+        },
+        translations: {
+          hi: { name: '' },
+          es: { name: '' },
+          fr: { name: '' }
+        }
+      });
     }
     setDropdownOpen(false);
     setModalOpen(true);
@@ -89,9 +229,34 @@ export default function CategoriesPage() {
       toast.error('Please enter a category name');
       return;
     }
+    if (formData.name.trim().length < 3 || formData.name.trim().length > 50) {
+      toast.error('Category name must be between 3 and 50 characters');
+      return;
+    }
     if (!formData.icon) {
       toast.error('Please select an icon');
       return;
+    }
+
+    // Strict Validation for rewards
+    if (Object.values(formData.rewards).some(v => v === null || v === undefined || v === 0)) {
+      toast.error('User Coin Rewards cannot be 0 or empty');
+      return;
+    }
+
+    if (formData.isGuestAllowed) {
+      if (formData.guestHeartsConfig.maxHearts <= 0) {
+        toast.error('Max Hearts must be greater than 0');
+        return;
+      }
+      if (formData.guestHeartsConfig.refillCount <= 0) {
+        toast.error('Refill Count must be greater than 0');
+        return;
+      }
+      if (Object.values(formData.guestHeartsConfig.rewards).some(v => v === null || v === undefined || v === 0)) {
+        toast.error('Guest Level Rewards cannot be 0 or empty');
+        return;
+      }
     }
     setSubmitting(true);
     try {
@@ -127,13 +292,13 @@ export default function CategoriesPage() {
     <DashboardLayout>
       <div className="p-8">
         <Toaster position="top-right" />
-        
+
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Quiz Categories</h1>
             <p className="text-text-muted mt-1">Manage themes and categories for your quiz app</p>
           </div>
-          <button 
+          <button
             onClick={() => handleOpenModal()}
             className="bg-primary hover:opacity-90 text-white px-6 py-3 rounded-xl flex items-center gap-2 font-semibold shadow-lg shadow-primary/20 transition-all active:scale-95"
           >
@@ -143,37 +308,37 @@ export default function CategoriesPage() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <Loader2 className="w-10 h-10 text-primary animate-spin" />
-          </div>
+          <CategorySkeleton />
         ) : (
-          <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <AnimatePresence>
-              {categories
-                .slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
-                .map((category) => (
+          <div className="relative">
+            {pageLoading && (
+              <div className="absolute inset-0 z-20 bg-background/20 backdrop-blur-[1px] flex items-center justify-center rounded-3xl">
+                <Loader2 className="w-8 h-8 text-primary animate-spin" />
+              </div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {categories.map((category) => (
                 <motion.div
                   key={category._id}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className="bg-surface border border-border rounded-2xl p-6 group hover:border-primary/30 transition-all duration-300 relative overflow-hidden shadow-sm"
+                  layout
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-surface border border-border rounded-2xl p-6 group hover:border-primary/30 transition-all duration-300 relative overflow-hidden shadow-sm h-48"
                 >
-                  <Link 
-                    href={`/dashboard/questions?categoryId=${category._id}`} 
+                  <Link
+                    href={`/dashboard/questions?categoryId=${category._id}`}
                     className="absolute inset-0 z-0 cursor-pointer"
                   />
-                  
+
                   <div className="flex justify-between items-start mb-4 relative z-10">
-                    <div 
+                    <div
                       className="w-12 h-12 rounded-xl flex items-center justify-center shadow-inner border border-white/5"
                       style={{ backgroundColor: `${category.color}20`, color: category.color }}
                     >
                       <span className="material-icons text-2xl">{category.icon}</span>
                     </div>
                     <div className="flex gap-2">
-                      <button 
+                      <button
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -183,7 +348,7 @@ export default function CategoriesPage() {
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
-                      <button 
+                      <button
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -196,42 +361,58 @@ export default function CategoriesPage() {
                       </button>
                     </div>
                   </div>
-                  
+
                   <div className="relative z-10 pointer-events-none">
                     <h3 className="text-xl font-bold text-foreground mb-1">{category.name}</h3>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: category.color }}></div>
-                      <span className="text-xs text-text-muted uppercase tracking-tighter font-semibold">Theme: {category.color}</span>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: category.color }}></div>
+                        <span className="text-[10px] text-text-muted uppercase tracking-wider font-bold">Theme: {category.color}</span>
+                      </div>
                     </div>
                   </div>
                 </motion.div>
               ))}
-            </AnimatePresence>
+            </div>
+
+            {categories.length === 0 && (
+              <div className="bg-surface border border-dashed border-border rounded-3xl p-12 text-center">
+                <p className="text-text-muted italic">No categories found.</p>
+              </div>
+            )}
+
+            <Pagination
+              currentPage={currentPage}
+              totalPages={Math.ceil(totalCount / ITEMS_PER_PAGE)}
+              totalItems={totalCount}
+              itemsPerPage={ITEMS_PER_PAGE}
+              onPageChange={setCurrentPage}
+              itemLabel="categories"
+            />
           </div>
-          <Pagination
-            currentPage={currentPage}
-            totalPages={Math.ceil(categories.length / ITEMS_PER_PAGE)}
-            totalItems={categories.length}
-            itemsPerPage={ITEMS_PER_PAGE}
-            onPageChange={setCurrentPage}
-            itemLabel="categories"
-          />
-          </>
         )}
       </div>
 
       {/* Modal */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-md bg-surface border border-border rounded-2xl p-8 shadow-2xl"
+            className="w-full max-w-2xl bg-surface border border-border rounded-2xl p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar"
           >
+            <button
+              type="button"
+              onClick={() => setModalOpen(false)}
+              className="absolute right-6 top-6 text-text-muted hover:text-foreground transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
             <h2 className="text-2xl font-bold text-foreground mb-6">
               {editingCategory ? 'Edit Category' : 'New Category'}
             </h2>
             <form onSubmit={handleSubmit} noValidate className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-text-muted mb-2">Category Name</label>
                 <input
@@ -240,11 +421,13 @@ export default function CategoriesPage() {
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   placeholder="e.g., General Knowledge"
+                  minLength={3}
+                  maxLength={50}
                 />
               </div>
               <div className="relative" ref={dropdownRef}>
                 <label className="block text-sm font-medium text-text-muted mb-2">Select Icon</label>
-                <div 
+                <div
                   onClick={() => setDropdownOpen(!dropdownOpen)}
                   className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground flex items-center justify-between cursor-pointer hover:border-primary/50 transition-colors"
                 >
@@ -252,7 +435,7 @@ export default function CategoriesPage() {
                     <span className="material-icons text-primary text-xl">{formData.icon}</span>
                     <span className="capitalize">{icons.find(i => i.name === formData.icon)?.label || 'Select Icon'}</span>
                   </div>
-                  <motion.span 
+                  <motion.span
                     animate={{ rotate: dropdownOpen ? 180 : 0 }}
                     transition={{ duration: 0.2 }}
                     className="material-icons text-text-muted"
@@ -301,6 +484,189 @@ export default function CategoriesPage() {
                     onChange={(e) => setFormData({ ...formData, color: e.target.value })}
                     className="flex-1 bg-background border border-border rounded-xl px-4 py-3 text-foreground placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   />
+                </div>
+              </div>
+              <div className="flex items-center gap-3 bg-background/50 p-4 rounded-xl border border-border h-[68px] mt-7">
+                <input
+                  type="checkbox"
+                  id="isGuestAllowed"
+                  checked={formData.isGuestAllowed}
+                  onChange={(e) => setFormData({ ...formData, isGuestAllowed: e.target.checked })}
+                  className="w-5 h-5 accent-primary cursor-pointer"
+                />
+                <label htmlFor="isGuestAllowed" className="text-sm font-medium text-foreground cursor-pointer">
+                  Allow Guest Users
+                </label>
+              </div>
+            </div>
+
+              {formData.isGuestAllowed && (
+                <>
+                  <div className="space-y-4 bg-background/50 p-4 rounded-xl border border-border">
+                    <h4 className="text-sm font-bold text-foreground">Guest Access Levels</h4>
+                    <div className="flex gap-4">
+                      {['easy', 'medium', 'hard'].map((level) => (
+                        <label key={level} className="flex items-center gap-2 cursor-pointer group">
+                          <input
+                            type="checkbox"
+                            checked={(formData.guestAccess as any)[level]}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              guestAccess: { ...formData.guestAccess, [level]: e.target.checked }
+                            })}
+                            className="w-4 h-4 accent-primary cursor-pointer"
+                          />
+                          <span className="text-xs font-medium text-text-muted group-hover:text-foreground capitalize">{level}</span>
+                        </label>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border">
+                      <div>
+                        <label className="block text-xs font-medium text-text-muted mb-2 uppercase tracking-wider">Attempts Limit</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={formData.maxGuestAttempts}
+                          onChange={(e) => setFormData({ ...formData, maxGuestAttempts: Math.max(0, parseInt(e.target.value) || 0) })}
+                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-text-muted mb-2 uppercase tracking-wider">Incorrect Limit (Hearts)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={formData.guestCreditLimit}
+                          onChange={(e) => setFormData({ ...formData, guestCreditLimit: Math.max(0, parseInt(e.target.value) || 0) })}
+                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 bg-background/50 p-4 rounded-xl border border-border">
+                    <h4 className="text-sm font-bold text-foreground">Guest Hearts Config</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-bold text-text-muted mb-1 uppercase">Max Hearts</label>
+                        <input
+                          type="number"
+                          value={formData.guestHeartsConfig.maxHearts}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            guestHeartsConfig: { ...formData.guestHeartsConfig, maxHearts: parseInt(e.target.value) || 0 }
+                          })}
+                          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-text-muted mb-1 uppercase">Refill Count</label>
+                        <input
+                          type="number"
+                          value={formData.guestHeartsConfig.refillCount}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            guestHeartsConfig: { ...formData.guestHeartsConfig, refillCount: parseInt(e.target.value) || 0 }
+                          })}
+                          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-text-muted mb-1 uppercase">Cooldown (Hrs)</label>
+                        <input
+                          type="number"
+                          value={formData.guestHeartsConfig.refillCooldownHours}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            guestHeartsConfig: { ...formData.guestHeartsConfig, refillCooldownHours: parseInt(e.target.value) || 0 }
+                          })}
+                          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-text-muted mb-1 uppercase">Daily Refill Limit</label>
+                        <input
+                          type="number"
+                          value={formData.guestHeartsConfig.dailyRefillLimit}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            guestHeartsConfig: { ...formData.guestHeartsConfig, dailyRefillLimit: parseInt(e.target.value) || 0 }
+                          })}
+                          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-border">
+                      <h5 className="text-[10px] font-bold text-text-muted mb-2 uppercase">Level Completion Hearts</h5>
+                      <div className="grid grid-cols-3 gap-3">
+                        {['easy', 'medium', 'hard'].map((level) => (
+                          <div key={level}>
+                            <label className="block text-[10px] font-bold text-text-muted mb-1 uppercase tracking-tight">{level}</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={(formData.guestHeartsConfig.rewards as any)[level]}
+                              onChange={(e) => setFormData({
+                                ...formData,
+                                guestHeartsConfig: { 
+                                  ...formData.guestHeartsConfig, 
+                                  rewards: { ...formData.guestHeartsConfig.rewards, [level]: Math.max(0, parseInt(e.target.value) || 0) } 
+                                }
+                              })}
+                              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div className="space-y-4 bg-background/50 p-4 rounded-xl border border-border">
+                <h4 className="text-sm font-bold text-foreground">User Coin Rewards</h4>
+                <div className="grid grid-cols-3 gap-3">
+                  {['easy', 'medium', 'hard'].map((level) => (
+                    <div key={level}>
+                      <label className="block text-[10px] font-bold text-text-muted mb-1 uppercase tracking-tight">{level}</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={(formData.rewards as any)[level]}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          rewards: { ...formData.rewards, [level]: Math.max(0, parseInt(e.target.value) || 0) }
+                        })}
+                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-4 bg-background/50 p-4 rounded-xl border border-border">
+                <h4 className="text-sm font-bold text-foreground">Translations</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {['hi', 'es', 'fr'].map((lang) => (
+                    <div key={lang}>
+                      <label className="block text-[10px] font-bold text-text-muted mb-1 uppercase">
+                        {lang === 'hi' ? 'Hindi' : lang === 'es' ? 'Spanish' : 'French'} Name
+                      </label>
+                      <input
+                        type="text"
+                        value={(formData.translations as any)[lang]?.name || ''}
+                        onChange={(e) => {
+                          const newTranslations = { ...formData.translations };
+                          (newTranslations as any)[lang] = { name: e.target.value };
+                          setFormData({ ...formData, translations: newTranslations });
+                        }}
+                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                        placeholder={`Name in ${lang.toUpperCase()}`}
+                      />
+                    </div>
+                  ))}
                 </div>
               </div>
               <div className="flex gap-4 pt-4">
