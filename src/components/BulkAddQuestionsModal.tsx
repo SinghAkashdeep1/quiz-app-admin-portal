@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { Plus, Trash2, Loader2, Save, X, CopyPlus, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, Loader2, Save, X, CopyPlus, ChevronDown, ChevronUp, Image as ImageIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
@@ -14,12 +14,16 @@ interface Category {
 interface BulkQuestion {
   id: string;
   categoryId: string;
-  type: 'mcq' | 'boolean' | 'image';
+  type: 'mcq' | 'boolean' | 'image' | 'multiple_correct' | 'matching';
   text: string;
   imageUrl?: string;
   options: string[];
-  correctAnswerIndex: number;
+  optionImages: string[];
+  correctAnswerIndex?: number;
+  correctAnswerIndices?: number[];
+  matchingPairs?: { left: string, right: string }[];
   difficulty: 'easy' | 'medium' | 'hard';
+  isAlternative: boolean;
   collapsed: boolean;
 }
 
@@ -37,15 +41,23 @@ const generateId = () => {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 };
 
-const emptyQuestion = (categoryId: string, difficulty: 'easy' | 'medium' | 'hard' = 'easy'): BulkQuestion => ({
+const emptyQuestion = (
+  categoryId: string, 
+  difficulty: 'easy' | 'medium' | 'hard' = 'easy',
+  isAlternative: boolean = false
+): BulkQuestion => ({
   id: generateId(),
   categoryId,
   type: 'mcq',
   text: '',
   imageUrl: '',
   options: ['', '', '', ''],
+  optionImages: ['', '', '', ''],
   correctAnswerIndex: 0,
+  correctAnswerIndices: [],
+  matchingPairs: [{ left: '', right: '' }],
   difficulty,
+  isAlternative,
   collapsed: false,
 });
 
@@ -60,13 +72,15 @@ export default function BulkAddQuestionsModal({ open, onClose, categories, onSuc
   const [useGlobalCategory, setUseGlobalCategory] = useState(true);
   const [globalDifficulty, setGlobalDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
   const [useGlobalDifficulty, setUseGlobalDifficulty] = useState(true);
+  const [globalIsAlternative, setGlobalIsAlternative] = useState(false);
 
   const addQuestion = () => {
     setQuestions(prev => [
       ...prev, 
       emptyQuestion(
         useGlobalCategory ? globalCategory : defaultCat,
-        useGlobalDifficulty ? globalDifficulty : 'easy'
+        useGlobalDifficulty ? globalDifficulty : 'easy',
+        globalIsAlternative
       )
     ]);
   };
@@ -100,6 +114,18 @@ export default function BulkAddQuestionsModal({ open, onClose, categories, onSuc
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File size exceeds 5MB');
+      return;
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/svg+xml'];
+    const fileExt = file.name.split('.').pop()?.toLowerCase();
+    if (!allowedTypes.includes(file.type) && fileExt !== 'svg') {
+      toast.error('Only JPG, PNG and SVG are allowed');
+      return;
+    }
+
     const formData = new FormData();
     formData.append('image', file);
 
@@ -112,6 +138,48 @@ export default function BulkAddQuestionsModal({ open, onClose, categories, onSuc
       });
       updateQuestion(id, 'imageUrl', data.image);
       toast.success('Image uploaded');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Upload failed');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const uploadBulkOptionImage = async (id: string, optIdx: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File size exceeds 5MB');
+      return;
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/svg+xml'];
+    const fileExt = file.name.split('.').pop()?.toLowerCase();
+    if (!allowedTypes.includes(file.type) && fileExt !== 'svg') {
+      toast.error('Only JPG, PNG and SVG are allowed');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    setSubmitting(true);
+    try {
+      const { data } = await api.post('/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      setQuestions(prev => prev.map(q => {
+        if (q.id !== id) return q;
+        const newOptionImages = [...q.optionImages];
+        newOptionImages[optIdx] = data.image;
+        return { ...q, optionImages: newOptionImages };
+      }));
+      
+      toast.success('Option image uploaded');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Upload failed');
     } finally {
@@ -133,6 +201,11 @@ export default function BulkAddQuestionsModal({ open, onClose, categories, onSuc
     }
   };
 
+  const handleGlobalIsAlternativeChange = (val: boolean) => {
+    setGlobalIsAlternative(val);
+    setQuestions(prev => prev.map(q => ({ ...q, isAlternative: val })));
+  };
+
   const handleSubmit = async () => {
     // Validate
     for (let i = 0; i < questions.length; i++) {
@@ -141,18 +214,34 @@ export default function BulkAddQuestionsModal({ open, onClose, categories, onSuc
         toast.error(`Question ${i + 1}: Please select a category`);
         return;
       }
-      if (!q.text.trim()) {
-        toast.error(`Question ${i + 1}: Please enter question text`);
-        return;
-      }
       if (q.type === 'image' && !q.imageUrl?.trim()) {
-        toast.error(`Question ${i + 1}: Please upload an image`);
+        toast.error(`Question ${i + 1}: Please upload a question image for Image Question type`);
         return;
       }
-      const emptyOpt = q.options.findIndex((o, idx) => !o.trim() && (q.type !== 'boolean' || idx < 2));
-      if (emptyOpt !== -1) {
-        toast.error(`Question ${i + 1}: Please fill Option ${String.fromCharCode(65 + emptyOpt)}`);
+      if (!q.text.trim() && !q.imageUrl?.trim()) {
+        toast.error(`Question ${i + 1}: Please enter text or upload an image`);
         return;
+      }
+      if (q.type === 'multiple_correct' && (!q.correctAnswerIndices || q.correctAnswerIndices.length < 2)) {
+        toast.error(`Question ${i + 1}: Please select at least 2 correct answers`);
+        return;
+      }
+      if (q.type === 'matching' && (!q.matchingPairs || q.matchingPairs.some(p => !p.left.trim() || !p.right.trim()))) {
+        toast.error(`Question ${i + 1}: Please fill in all matching pairs`);
+        return;
+      }
+      if (q.type !== 'matching') {
+        const emptyOpt = q.options.findIndex((o, optIdx) => {
+          const hasText = o.trim().length > 0;
+          const hasImage = q.optionImages?.[optIdx]?.trim()?.length > 0;
+          const isRequired = q.type !== 'boolean' || optIdx < 2;
+          return isRequired && !hasText && !hasImage;
+        });
+        
+        if (emptyOpt !== -1) {
+          toast.error(`Question ${i + 1}: Please fill text or upload an image for Option ${String.fromCharCode(65 + emptyOpt)}`);
+          return;
+        }
       }
     }
 
@@ -164,8 +253,12 @@ export default function BulkAddQuestionsModal({ open, onClose, categories, onSuc
         text: q.text,
         imageUrl: q.imageUrl,
         options: q.type === 'boolean' ? q.options.slice(0, 2) : q.options,
+        optionImages: q.optionImages,
         correctAnswerIndex: q.correctAnswerIndex,
+        correctAnswerIndices: q.correctAnswerIndices,
+        matchingPairs: q.matchingPairs,
         difficulty: q.difficulty,
+        isAlternative: q.isAlternative,
       }));
       const res = await api.post('/questions/bulk', { questions: payload });
       toast.success(`${res.data.count} questions added successfully!`);
@@ -266,6 +359,18 @@ export default function BulkAddQuestionsModal({ open, onClose, categories, onSuc
                 <option value="hard">Hard</option>
               </select>
             )}
+
+            <div className="w-px h-6 bg-border mx-2 hidden md:block"></div>
+
+            <label className="flex items-center gap-2 cursor-pointer bg-primary/10 px-3 py-1.5 rounded-lg border border-primary/20">
+              <input
+                type="checkbox"
+                checked={globalIsAlternative}
+                onChange={(e) => handleGlobalIsAlternativeChange(e.target.checked)}
+                className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary"
+              />
+              <span className="text-sm font-bold text-primary">Set all as Alternative</span>
+            </label>
           </div>
         </div>
 
@@ -337,6 +442,18 @@ export default function BulkAddQuestionsModal({ open, onClose, categories, onSuc
                           </select>
                         </div>
                       )}
+                      <div className="flex items-center gap-2 pt-5">
+                        <input
+                          type="checkbox"
+                          id={`alt-${q.id}`}
+                          checked={q.isAlternative}
+                          onChange={(e) => updateQuestion(q.id, 'isAlternative', e.target.checked)}
+                          className="w-4 h-4 text-primary bg-surface border-border rounded focus:ring-primary"
+                        />
+                        <label htmlFor={`alt-${q.id}`} className="text-xs font-medium text-foreground cursor-pointer">
+                          Alternative Question
+                        </label>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -345,7 +462,7 @@ export default function BulkAddQuestionsModal({ open, onClose, categories, onSuc
                         <select
                           value={q.type}
                           onChange={(e) => {
-                            const newType = e.target.value as 'mcq' | 'boolean' | 'image';
+                            const newType = e.target.value as 'mcq' | 'boolean' | 'image' | 'multiple_correct' | 'matching';
                             let newOptions = [...q.options];
                             let newCorrectIndex = q.correctAnswerIndex;
                             if (newType === 'boolean') {
@@ -361,6 +478,8 @@ export default function BulkAddQuestionsModal({ open, onClose, categories, onSuc
                           <option value="mcq">MCQ</option>
                           <option value="boolean">Boolean</option>
                           <option value="image">Image</option>
+                          <option value="multiple_correct">Multiple Correct</option>
+                          <option value="matching">Matching</option>
                         </select>
                       </div>
 
@@ -402,30 +521,116 @@ export default function BulkAddQuestionsModal({ open, onClose, categories, onSuc
                       />
                     </div>
 
-                    {/* Options */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {q.options.map((opt, optIdx) => (
-                        q.type === 'boolean' && optIdx > 1 ? null : (
-                          <div key={optIdx} className="flex gap-2 items-center">
-                            <input
-                              type="radio"
-                              name={`correct-${q.id}`}
-                              checked={q.correctAnswerIndex === optIdx}
-                              onChange={() => updateQuestion(q.id, 'correctAnswerIndex', optIdx)}
-                              className="w-4 h-4 text-primary bg-surface border-border focus:ring-primary flex-shrink-0"
-                            />
+                    {q.type !== 'matching' && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {q.options.map((opt, optIdx) => (
+                          q.type === 'boolean' && optIdx > 1 ? null : (
+                            <div key={optIdx} className="flex gap-2 items-center">
+                              {q.type === 'multiple_correct' ? (
+                                <input
+                                  type="checkbox"
+                                  checked={q.correctAnswerIndices?.includes(optIdx)}
+                                  onChange={(e) => {
+                                    const currentIndices = q.correctAnswerIndices || [];
+                                    const newIndices = e.target.checked
+                                      ? [...currentIndices, optIdx]
+                                      : currentIndices.filter(i => i !== optIdx);
+                                    updateQuestion(q.id, 'correctAnswerIndices', newIndices);
+                                  }}
+                                  className="w-4 h-4 text-primary bg-surface border-border rounded focus:ring-primary flex-shrink-0"
+                                />
+                              ) : (
+                                <input
+                                  type="radio"
+                                  name={`correct-${q.id}`}
+                                  checked={q.correctAnswerIndex === optIdx}
+                                  onChange={() => updateQuestion(q.id, 'correctAnswerIndex', optIdx)}
+                                  className="w-4 h-4 text-primary bg-surface border-border focus:ring-primary flex-shrink-0"
+                                />
+                              )}
+                              <input
+                                type="text"
+                                value={opt}
+                                readOnly={q.type === 'boolean'}
+                                onChange={(e) => updateOption(q.id, optIdx, e.target.value)}
+                                className={`flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-foreground text-sm placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-primary ${q.type === 'boolean' ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                placeholder={`Option ${String.fromCharCode(65 + optIdx)}`}
+                              />
+                              {q.type === 'image' && (
+                                <div className="flex items-center gap-2">
+                                  {q.optionImages[optIdx] && (
+                                    <img
+                                      src={`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000'}${q.optionImages[optIdx]}`}
+                                      alt={`Option ${optIdx} Preview`}
+                                      className="w-8 h-8 rounded-lg object-cover border border-border"
+                                    />
+                                  )}
+                                  <label className="cursor-pointer bg-surface border border-border border-dashed hover:border-primary/50 rounded-lg p-1.5 text-center transition-colors">
+                                    <ImageIcon className="w-4 h-4 text-text-muted" />
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      onChange={(e) => uploadBulkOptionImage(q.id, optIdx, e)}
+                                      className="hidden"
+                                    />
+                                  </label>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        ))}
+                      </div>
+                    )}
+
+                    {q.type === 'matching' && (
+                      <div className="space-y-3">
+                        {q.matchingPairs?.map((pair, pIdx) => (
+                          <div key={pIdx} className="flex gap-2 items-center">
                             <input
                               type="text"
-                              value={opt}
-                              readOnly={q.type === 'boolean'}
-                              onChange={(e) => updateOption(q.id, optIdx, e.target.value)}
-                              className={`flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-foreground text-sm placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-primary ${q.type === 'boolean' ? 'opacity-70 cursor-not-allowed' : ''}`}
-                              placeholder={`Option ${String.fromCharCode(65 + optIdx)}`}
+                              value={pair.left}
+                              onChange={(e) => {
+                                const newPairs = (q.matchingPairs || []).map((p, i) =>
+                                  i === pIdx ? { ...p, left: e.target.value } : p
+                                );
+                                updateQuestion(q.id, 'matchingPairs', newPairs);
+                              }}
+                              className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                              placeholder="Item A"
                             />
+                            <span className="text-text-muted">↔</span>
+                            <input
+                              type="text"
+                              value={pair.right}
+                              onChange={(e) => {
+                                const newPairs = (q.matchingPairs || []).map((p, i) =>
+                                  i === pIdx ? { ...p, right: e.target.value } : p
+                                );
+                                updateQuestion(q.id, 'matchingPairs', newPairs);
+                              }}
+                              className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                              placeholder="Match B"
+                            />
+                            <button
+                              onClick={() => {
+                                const newPairs = (q.matchingPairs || []).filter((_, i) => i !== pIdx);
+                                updateQuestion(q.id, 'matchingPairs', newPairs);
+                              }}
+                              className="p-1.5 text-red-400 hover:bg-red-400/10 rounded-lg"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
-                        )
-                      ))}
-                    </div>
+                        ))}
+                        <button
+                          onClick={() => updateQuestion(q.id, 'matchingPairs', [...(q.matchingPairs || []), { left: '', right: '' }])}
+                          className="w-full border border-dashed border-border hover:border-primary/40 rounded-lg py-2 flex items-center justify-center gap-2 text-text-muted hover:text-primary transition-all text-xs"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          Add Pair
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </motion.div>

@@ -18,6 +18,8 @@ import {
 import { motion } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { useState, useEffect } from 'react';
+import DynamicText from '@/components/DynamicText';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -35,10 +37,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { logout, username } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
+
+
   return (
     <div className="flex min-h-screen bg-background text-foreground transition-colors duration-300">
       {/* Sidebar */}
-      <aside className="w-72 border-r border-border bg-surface/50 backdrop-blur-xl flex flex-col">
+      <aside className="w-72 border-r border-border bg-surface/50 backdrop-blur-xl flex flex-col sticky top-0 h-screen">
         <Link href="/dashboard" className="p-6 flex items-center gap-3 hover:opacity-80 transition-opacity">
           <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center shadow-lg shadow-primary/20">
             <ShieldCheck className="w-6 h-6 text-white" />
@@ -63,7 +67,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 )}
               >
                 <item.icon className={cn("w-5 h-5", isActive ? "text-primary" : "text-text-muted group-hover:text-foreground")} />
-                <span className="font-medium">{item.name}</span>
+                <span className="font-medium">
+                  <DynamicText>{item.name}</DynamicText>
+                </span>
                 {isActive && (
                   <motion.div
                     layoutId="active-pill"
@@ -77,42 +83,54 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           })}
         </nav>
 
-        <div className="p-4 border-t border-border">
+        <div className="p-4 border-t border-border space-y-2">
+
+
           <button
             onClick={toggleTheme}
-            className="w-full flex items-center gap-3 px-4 py-3 mb-2 rounded-xl text-text-muted hover:text-foreground hover:bg-surface/80 transition-all group"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-text-muted hover:text-foreground hover:bg-surface/80 transition-all group"
           >
             {theme === 'dark' ? (
               <>
                 <Sun className="w-5 h-5 group-hover:rotate-45 transition-transform" />
-                <span className="font-medium">Light Mode</span>
+                <span className="font-medium">
+                  <DynamicText>Light Mode</DynamicText>
+                </span>
               </>
             ) : (
               <>
                 <Moon className="w-5 h-5 group-hover:-rotate-12 transition-transform" />
-                <span className="font-medium">Dark Mode</span>
+                <span className="font-medium">
+                  <DynamicText>Dark Mode</DynamicText>
+                </span>
               </>
             )}
           </button>
+
           <Link
             href="/dashboard/profile"
-            className="flex items-center gap-3 px-4 py-3 mb-2 rounded-xl hover:bg-surface/80 transition-all group"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-surface/80 transition-all group"
           >
             <div className="w-8 h-8 bg-surface rounded-full flex items-center justify-center text-xs font-bold text-text-muted border border-border group-hover:border-primary/50 transition-colors">
               {username?.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 overflow-hidden">
               <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">{username}</p>
-              <p className="text-xs text-text-muted truncate italic">Administrator</p>
+              <p className="text-xs text-text-muted truncate italic">
+                <DynamicText>Administrator</DynamicText>
+              </p>
             </div>
             <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-primary transition-colors" />
           </Link>
+
           <button
             onClick={logout}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-text-muted hover:text-red-400 hover:bg-red-400/5 transition-all group"
           >
             <LogOut className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-            <span className="font-medium">Logout</span>
+            <span className="font-medium">
+              <DynamicText>Logout</DynamicText>
+            </span>
           </button>
         </div>
       </aside>

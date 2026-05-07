@@ -9,6 +9,7 @@ import Pagination from '@/components/Pagination';
 import toast, { Toaster } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Skeleton, CategorySkeleton } from '@/components/Skeleton';
+import DynamicText from '@/components/DynamicText';
 
 const ITEMS_PER_PAGE = 9;
 
@@ -41,9 +42,23 @@ interface Category {
       hard: number;
     };
   };
-  translations?: {
-    [key: string]: {
-      name: string;
+
+  lifelines?: {
+    aiHints: {
+      freePerLevel: number;
+      coinCost: number;
+    };
+    fiftyFifty: {
+      freePerLevel: number;
+      coinCost: number;
+    };
+    changeQuestion: {
+      freePerLevel: number;
+      coinCost: number;
+    };
+    stopTimer: {
+      freePerLevel: number;
+      coinCost: number;
     };
   };
 }
@@ -63,6 +78,8 @@ export default function CategoriesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const [archivedCategories, setArchivedCategories] = useState<Category[]>([]);
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [formData, setFormData] = useState({
@@ -93,10 +110,12 @@ export default function CategoriesPage() {
         hard: 3
       }
     },
-    translations: {
-      hi: { name: '' },
-      es: { name: '' },
-      fr: { name: '' }
+
+    lifelines: {
+      aiHints: { freePerLevel: 1, coinCost: 10 },
+      fiftyFifty: { freePerLevel: 1, coinCost: 10 },
+      changeQuestion: { freePerLevel: 1, coinCost: 10 },
+      stopTimer: { freePerLevel: 1, coinCost: 10 }
     }
   });
   const [submitting, setSubmitting] = useState(false);
@@ -142,8 +161,25 @@ export default function CategoriesPage() {
   };
 
   useEffect(() => {
-    fetchCategories();
-  }, [currentPage]);
+    if (showArchived) {
+      fetchArchivedCategories();
+    } else {
+      fetchCategories();
+    }
+  }, [currentPage, showArchived]);
+
+  const fetchArchivedCategories = async () => {
+    setPageLoading(true);
+    try {
+      const response = await api.get('/categories/archived');
+      setArchivedCategories(response.data);
+    } catch (error) {
+      toast.error('Failed to fetch archived categories');
+    } finally {
+      setPageLoading(false);
+      setLoading(false);
+    }
+  };
 
   const handleOpenModal = (category: Category | null = null) => {
     if (category) {
@@ -176,10 +212,12 @@ export default function CategoriesPage() {
             hard: 3
           }
         },
-        translations: category.translations || {
-          hi: { name: '' },
-          es: { name: '' },
-          fr: { name: '' }
+
+        lifelines: category.lifelines || {
+          aiHints: { freePerLevel: 1, coinCost: 10 },
+          fiftyFifty: { freePerLevel: 1, coinCost: 10 },
+          changeQuestion: { freePerLevel: 1, coinCost: 10 },
+          stopTimer: { freePerLevel: 1, coinCost: 10 }
         }
       });
     } else {
@@ -212,10 +250,12 @@ export default function CategoriesPage() {
             hard: 3
           }
         },
-        translations: {
-          hi: { name: '' },
-          es: { name: '' },
-          fr: { name: '' }
+
+        lifelines: {
+          aiHints: { freePerLevel: 1, coinCost: 10 },
+          fiftyFifty: { freePerLevel: 1, coinCost: 10 },
+          changeQuestion: { freePerLevel: 1, coinCost: 10 },
+          stopTimer: { freePerLevel: 1, coinCost: 10 }
         }
       });
     }
@@ -279,12 +319,28 @@ export default function CategoriesPage() {
   const confirmDelete = async () => {
     if (!categoryToDelete) return;
     try {
-      await api.delete(`/categories/${categoryToDelete._id}`);
-      toast.success('Category deleted');
+      if (showArchived) {
+        await api.delete(`/categories/${categoryToDelete._id}/permanent`);
+        toast.success('Category permanently deleted');
+        fetchArchivedCategories();
+      } else {
+        await api.delete(`/categories/${categoryToDelete._id}`);
+        toast.success('Category moved to archive');
+        fetchCategories();
+      }
       setDeleteModalOpen(false);
-      fetchCategories();
     } catch (error) {
-      toast.error('Failed to delete category');
+      toast.error('Operation failed');
+    }
+  };
+
+  const handleRestore = async (id: string) => {
+    try {
+      await api.put(`/categories/${id}/restore`);
+      toast.success('Category restored');
+      fetchArchivedCategories();
+    } catch (error) {
+      toast.error('Failed to restore category');
     }
   };
 
@@ -295,16 +351,33 @@ export default function CategoriesPage() {
 
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Quiz Categories</h1>
-            <p className="text-text-muted mt-1">Manage themes and categories for your quiz app</p>
+            <h1 className="text-3xl font-bold text-foreground">
+              <DynamicText>Quiz Categories</DynamicText>
+            </h1>
+            <p className="text-text-muted mt-1">
+              <DynamicText>Manage themes and categories for your quiz app</DynamicText>
+            </p>
           </div>
-          <button
-            onClick={() => handleOpenModal()}
-            className="bg-primary hover:opacity-90 text-white px-6 py-3 rounded-xl flex items-center gap-2 font-semibold shadow-lg shadow-primary/20 transition-all active:scale-95"
-          >
-            <Plus className="w-5 h-5" />
-            Add Category
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setShowArchived(!showArchived)}
+              className={`px-6 py-3 rounded-xl flex items-center gap-2 font-semibold transition-all active:scale-95 border ${
+                showArchived 
+                ? "bg-amber-500/10 border-amber-500/50 text-amber-500" 
+                : "bg-surface border-border text-text-muted hover:border-primary/50"
+              }`}
+            >
+              <Tag className="w-5 h-5" />
+              <DynamicText>{showArchived ? "View Active" : "View Archive"}</DynamicText>
+            </button>
+            <button
+              onClick={() => handleOpenModal()}
+              className="bg-primary hover:opacity-90 text-white px-6 py-3 rounded-xl flex items-center gap-2 font-semibold shadow-lg shadow-primary/20 transition-all active:scale-95"
+            >
+              <Plus className="w-5 h-5" />
+              <DynamicText>Add Category</DynamicText>
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -317,18 +390,22 @@ export default function CategoriesPage() {
               </div>
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {categories.map((category) => (
+              {(showArchived ? archivedCategories : categories).map((category) => (
                 <motion.div
                   key={category._id}
                   layout
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-surface border border-border rounded-2xl p-6 group hover:border-primary/30 transition-all duration-300 relative overflow-hidden shadow-sm h-48"
+                  className={`bg-surface border rounded-2xl p-6 group transition-all duration-300 relative overflow-hidden shadow-sm h-48 ${
+                    showArchived ? "border-amber-500/20 grayscale-[0.5]" : "border-border hover:border-primary/30"
+                  }`}
                 >
-                  <Link
-                    href={`/dashboard/questions?categoryId=${category._id}`}
-                    className="absolute inset-0 z-0 cursor-pointer"
-                  />
+                  {!showArchived && (
+                    <Link
+                      href={`/dashboard/questions?categoryId=${category._id}`}
+                      className="absolute inset-0 z-0 cursor-pointer"
+                    />
+                  )}
 
                   <div className="flex justify-between items-start mb-4 relative z-10">
                     <div
@@ -338,27 +415,52 @@ export default function CategoriesPage() {
                       <span className="material-icons text-2xl">{category.icon}</span>
                     </div>
                     <div className="flex gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleOpenModal(category);
-                        }}
-                        className="p-2 text-text-muted hover:text-primary hover:bg-primary/10 rounded-lg transition-colors bg-background/50"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setCategoryToDelete(category);
-                          setDeleteModalOpen(true);
-                        }}
-                        className="p-2 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors bg-background/50"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {showArchived ? (
+                        <>
+                          <button
+                            onClick={() => handleRestore(category._id)}
+                            className="p-2 text-green-400 hover:bg-green-400/10 rounded-lg transition-colors bg-background/50 flex items-center gap-1 text-xs font-bold"
+                            title="Restore"
+                          >
+                            <Plus className="w-4 h-4 rotate-45" /> Restore
+                          </button>
+                          <button
+                            onClick={() => {
+                              setCategoryToDelete(category);
+                              setDeleteModalOpen(true);
+                            }}
+                            className="p-2 text-red-400 hover:bg-red-400/10 rounded-lg transition-colors bg-background/50"
+                            title="Delete Permanently"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleOpenModal(category);
+                            }}
+                            className="p-2 text-text-muted hover:text-primary hover:bg-primary/10 rounded-lg transition-colors bg-background/50"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setCategoryToDelete(category);
+                              setDeleteModalOpen(true);
+                            }}
+                            className="p-2 text-text-muted hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition-colors bg-background/50"
+                            title="Move to Archive"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -369,6 +471,9 @@ export default function CategoriesPage() {
                         <div className="w-2 h-2 rounded-full" style={{ backgroundColor: category.color }}></div>
                         <span className="text-[10px] text-text-muted uppercase tracking-wider font-bold">Theme: {category.color}</span>
                       </div>
+                      {showArchived && (
+                        <span className="text-[10px] text-amber-500 font-bold uppercase tracking-wider">Archived</span>
+                      )}
                     </div>
                   </div>
                 </motion.div>
@@ -381,14 +486,16 @@ export default function CategoriesPage() {
               </div>
             )}
 
-            <Pagination
-              currentPage={currentPage}
-              totalPages={Math.ceil(totalCount / ITEMS_PER_PAGE)}
-              totalItems={totalCount}
-              itemsPerPage={ITEMS_PER_PAGE}
-              onPageChange={setCurrentPage}
-              itemLabel="categories"
-            />
+            {!showArchived && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={Math.ceil(totalCount / ITEMS_PER_PAGE)}
+                totalItems={totalCount}
+                itemsPerPage={ITEMS_PER_PAGE}
+                onPageChange={setCurrentPage}
+                itemLabel="categories"
+              />
+            )}
           </div>
         )}
       </div>
@@ -412,93 +519,93 @@ export default function CategoriesPage() {
               {editingCategory ? 'Edit Category' : 'New Category'}
             </h2>
             <form onSubmit={handleSubmit} noValidate className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-text-muted mb-2">Category Name</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                  placeholder="e.g., General Knowledge"
-                  minLength={3}
-                  maxLength={50}
-                />
-              </div>
-              <div className="relative" ref={dropdownRef}>
-                <label className="block text-sm font-medium text-text-muted mb-2">Select Icon</label>
-                <div
-                  onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground flex items-center justify-between cursor-pointer hover:border-primary/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="material-icons text-primary text-xl">{formData.icon}</span>
-                    <span className="capitalize">{icons.find(i => i.name === formData.icon)?.label || 'Select Icon'}</span>
-                  </div>
-                  <motion.span
-                    animate={{ rotate: dropdownOpen ? 180 : 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="material-icons text-text-muted"
-                  >
-                    expand_more
-                  </motion.span>
-                </div>
-
-                <AnimatePresence>
-                  {dropdownOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      className="absolute left-0 right-0 top-full mt-2 bg-surface border border-border rounded-xl shadow-2xl z-[60] py-2 max-h-80 overflow-y-auto custom-scrollbar"
-                    >
-                      {icons.map((icon) => (
-                        <div
-                          key={icon._id}
-                          onClick={() => {
-                            setFormData({ ...formData, icon: icon.name });
-                            setDropdownOpen(false);
-                          }}
-                          className={`flex items-center gap-3 px-4 py-3 hover:bg-background cursor-pointer transition-colors ${formData.icon === icon.name ? 'bg-primary/20 text-primary' : 'text-text-muted'}`}
-                        >
-                          <span className="material-icons text-xl">{icon.name}</span>
-                          <span className="font-medium">{icon.label}</span>
-                        </div>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-text-muted mb-2">Theme Color</label>
-                <div className="flex gap-3 items-center">
-                  <input
-                    type="color"
-                    value={formData.color}
-                    onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                    className="w-12 h-12 bg-transparent border-none cursor-pointer"
-                  />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-text-muted mb-2">Category Name</label>
                   <input
                     type="text"
-                    value={formData.color}
-                    onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                    className="flex-1 bg-background border border-border rounded-xl px-4 py-3 text-foreground placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="e.g., General Knowledge"
+                    minLength={3}
+                    maxLength={50}
                   />
                 </div>
+                <div className="relative" ref={dropdownRef}>
+                  <label className="block text-sm font-medium text-text-muted mb-2">Select Icon</label>
+                  <div
+                    onClick={() => setDropdownOpen(!dropdownOpen)}
+                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground flex items-center justify-between cursor-pointer hover:border-primary/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="material-icons text-primary text-xl">{formData.icon}</span>
+                      <span className="capitalize">{icons.find(i => i.name === formData.icon)?.label || 'Select Icon'}</span>
+                    </div>
+                    <motion.span
+                      animate={{ rotate: dropdownOpen ? 180 : 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="material-icons text-text-muted"
+                    >
+                      expand_more
+                    </motion.span>
+                  </div>
+
+                  <AnimatePresence>
+                    {dropdownOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        className="absolute left-0 right-0 top-full mt-2 bg-surface border border-border rounded-xl shadow-2xl z-[60] py-2 max-h-80 overflow-y-auto custom-scrollbar"
+                      >
+                        {icons.map((icon) => (
+                          <div
+                            key={icon._id}
+                            onClick={() => {
+                              setFormData({ ...formData, icon: icon.name });
+                              setDropdownOpen(false);
+                            }}
+                            className={`flex items-center gap-3 px-4 py-3 hover:bg-background cursor-pointer transition-colors ${formData.icon === icon.name ? 'bg-primary/20 text-primary' : 'text-text-muted'}`}
+                          >
+                            <span className="material-icons text-xl">{icon.name}</span>
+                            <span className="font-medium">{icon.label}</span>
+                          </div>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-muted mb-2">Theme Color</label>
+                  <div className="flex gap-3 items-center">
+                    <input
+                      type="color"
+                      value={formData.color}
+                      onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                      className="w-12 h-12 bg-transparent border-none cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={formData.color}
+                      onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                      className="flex-1 bg-background border border-border rounded-xl px-4 py-3 text-foreground placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 bg-background/50 p-4 rounded-xl border border-border h-[68px] mt-7">
+                  <input
+                    type="checkbox"
+                    id="isGuestAllowed"
+                    checked={formData.isGuestAllowed}
+                    onChange={(e) => setFormData({ ...formData, isGuestAllowed: e.target.checked })}
+                    className="w-5 h-5 accent-primary cursor-pointer"
+                  />
+                  <label htmlFor="isGuestAllowed" className="text-sm font-medium text-foreground cursor-pointer">
+                    Allow Guest Users
+                  </label>
+                </div>
               </div>
-              <div className="flex items-center gap-3 bg-background/50 p-4 rounded-xl border border-border h-[68px] mt-7">
-                <input
-                  type="checkbox"
-                  id="isGuestAllowed"
-                  checked={formData.isGuestAllowed}
-                  onChange={(e) => setFormData({ ...formData, isGuestAllowed: e.target.checked })}
-                  className="w-5 h-5 accent-primary cursor-pointer"
-                />
-                <label htmlFor="isGuestAllowed" className="text-sm font-medium text-foreground cursor-pointer">
-                  Allow Guest Users
-                </label>
-              </div>
-            </div>
 
               {formData.isGuestAllowed && (
                 <>
@@ -610,9 +717,9 @@ export default function CategoriesPage() {
                               value={(formData.guestHeartsConfig.rewards as any)[level]}
                               onChange={(e) => setFormData({
                                 ...formData,
-                                guestHeartsConfig: { 
-                                  ...formData.guestHeartsConfig, 
-                                  rewards: { ...formData.guestHeartsConfig.rewards, [level]: Math.max(0, parseInt(e.target.value) || 0) } 
+                                guestHeartsConfig: {
+                                  ...formData.guestHeartsConfig,
+                                  rewards: { ...formData.guestHeartsConfig.rewards, [level]: Math.max(0, parseInt(e.target.value) || 0) }
                                 }
                               })}
                               className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
@@ -647,28 +754,160 @@ export default function CategoriesPage() {
               </div>
 
               <div className="space-y-4 bg-background/50 p-4 rounded-xl border border-border">
-                <h4 className="text-sm font-bold text-foreground">Translations</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {['hi', 'es', 'fr'].map((lang) => (
-                    <div key={lang}>
-                      <label className="block text-[10px] font-bold text-text-muted mb-1 uppercase">
-                        {lang === 'hi' ? 'Hindi' : lang === 'es' ? 'Spanish' : 'French'} Name
-                      </label>
+                <h4 className="text-sm font-bold text-foreground">Lifelines Configuration (Registered Users)</h4>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {/* AI Hints */}
+                  <div className="space-y-3 p-3 bg-surface rounded-lg border border-border">
+                    <h5 className="text-xs font-bold text-primary flex items-center gap-1"><span className="material-icons text-sm">psychology</span> AI Hints</h5>
+                    <div>
+                      <label className="block text-[10px] font-bold text-text-muted mb-1 uppercase">Free per Level</label>
                       <input
-                        type="text"
-                        value={(formData.translations as any)[lang]?.name || ''}
-                        onChange={(e) => {
-                          const newTranslations = { ...formData.translations };
-                          (newTranslations as any)[lang] = { name: e.target.value };
-                          setFormData({ ...formData, translations: newTranslations });
-                        }}
+                        type="number"
+                        min="0"
+                        value={formData.lifelines.aiHints.freePerLevel}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          lifelines: {
+                            ...formData.lifelines,
+                            aiHints: { ...formData.lifelines.aiHints, freePerLevel: Math.max(0, parseInt(e.target.value) || 0) }
+                          }
+                        })}
                         className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                        placeholder={`Name in ${lang.toUpperCase()}`}
                       />
                     </div>
-                  ))}
+                    <div>
+                      <label className="block text-[10px] font-bold text-text-muted mb-1 uppercase">Extra Hint Coin Cost</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.lifelines.aiHints.coinCost}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          lifelines: {
+                            ...formData.lifelines,
+                            aiHints: { ...formData.lifelines.aiHints, coinCost: Math.max(0, parseInt(e.target.value) || 0) }
+                          }
+                        })}
+                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 50/50 */}
+                  <div className="space-y-3 p-3 bg-surface rounded-lg border border-border">
+                    <h5 className="text-xs font-bold text-primary flex items-center gap-1"><span className="material-icons text-sm">hdr_strong</span> 50/50</h5>
+                    <div>
+                      <label className="block text-[10px] font-bold text-text-muted mb-1 uppercase">Free per Level</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.lifelines.fiftyFifty.freePerLevel}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          lifelines: {
+                            ...formData.lifelines,
+                            fiftyFifty: { ...formData.lifelines.fiftyFifty, freePerLevel: Math.max(0, parseInt(e.target.value) || 0) }
+                          }
+                        })}
+                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-text-muted mb-1 uppercase">Extra 50/50 Coin Cost</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.lifelines.fiftyFifty.coinCost}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          lifelines: {
+                            ...formData.lifelines,
+                            fiftyFifty: { ...formData.lifelines.fiftyFifty, coinCost: Math.max(0, parseInt(e.target.value) || 0) }
+                          }
+                        })}
+                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Change Question */}
+                  <div className="space-y-3 p-3 bg-surface rounded-lg border border-border">
+                    <h5 className="text-xs font-bold text-primary flex items-center gap-1"><span className="material-icons text-sm">swap_horiz</span> Change Question</h5>
+                    <div>
+                      <label className="block text-[10px] font-bold text-text-muted mb-1 uppercase">Free per Level</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.lifelines.changeQuestion?.freePerLevel || 0}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          lifelines: {
+                            ...formData.lifelines,
+                            changeQuestion: { ...formData.lifelines.changeQuestion, freePerLevel: Math.max(0, parseInt(e.target.value) || 0) }
+                          }
+                        })}
+                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-text-muted mb-1 uppercase">Coin Cost</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.lifelines.changeQuestion?.coinCost || 0}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          lifelines: {
+                            ...formData.lifelines,
+                            changeQuestion: { ...formData.lifelines.changeQuestion, coinCost: Math.max(0, parseInt(e.target.value) || 0) }
+                          }
+                        })}
+                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Stop Timer */}
+                  <div className="space-y-3 p-3 bg-surface rounded-lg border border-border">
+                    <h5 className="text-xs font-bold text-primary flex items-center gap-1"><span className="material-icons text-sm">timer_off</span> Stop Timer</h5>
+                    <div>
+                      <label className="block text-[10px] font-bold text-text-muted mb-1 uppercase">Free per Level</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.lifelines.stopTimer?.freePerLevel || 0}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          lifelines: {
+                            ...formData.lifelines,
+                            stopTimer: { ...formData.lifelines.stopTimer, freePerLevel: Math.max(0, parseInt(e.target.value) || 0) }
+                          }
+                        })}
+                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-text-muted mb-1 uppercase">Coin Cost</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.lifelines.stopTimer?.coinCost || 0}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          lifelines: {
+                            ...formData.lifelines,
+                            stopTimer: { ...formData.lifelines.stopTimer, coinCost: Math.max(0, parseInt(e.target.value) || 0) }
+                          }
+                        })}
+                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
+
+
               <div className="flex gap-4 pt-4">
                 <button
                   type="button"
