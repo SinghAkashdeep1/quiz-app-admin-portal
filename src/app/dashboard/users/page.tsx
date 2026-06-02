@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import api from '@/lib/api';
 import { Users, Search, Plus, Loader2, Edit2, Trash2, X, Eye, EyeOff, AlertTriangle } from 'lucide-react';
@@ -22,7 +22,7 @@ interface User {
   createdAt: string;
 }
 
-export default function UsersPage() {
+function UsersContent() {
   const searchParams = useSearchParams();
   const roleParam = searchParams.get('role');
 
@@ -479,5 +479,13 @@ export default function UsersPage() {
         )}
       </AnimatePresence>
     </DashboardLayout>
+  );
+}
+
+export default function UsersPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Loader2 className="w-10 h-10 text-primary animate-spin" /></div>}>
+      <UsersContent />
+    </Suspense>
   );
 }
