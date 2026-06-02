@@ -42,7 +42,7 @@ const generateId = () => {
 };
 
 const emptyQuestion = (
-  categoryId: string, 
+  categoryId: string,
   difficulty: 'easy' | 'medium' | 'hard' = 'easy',
   isAlternative: boolean = false
 ): BulkQuestion => ({
@@ -76,7 +76,7 @@ export default function BulkAddQuestionsModal({ open, onClose, categories, onSuc
 
   const addQuestion = () => {
     setQuestions(prev => [
-      ...prev, 
+      ...prev,
       emptyQuestion(
         useGlobalCategory ? globalCategory : defaultCat,
         useGlobalDifficulty ? globalDifficulty : 'easy',
@@ -171,14 +171,14 @@ export default function BulkAddQuestionsModal({ open, onClose, categories, onSuc
           'Content-Type': 'multipart/form-data',
         },
       });
-      
+
       setQuestions(prev => prev.map(q => {
         if (q.id !== id) return q;
         const newOptionImages = [...q.optionImages];
         newOptionImages[optIdx] = data.image;
         return { ...q, optionImages: newOptionImages };
       }));
-      
+
       toast.success('Option image uploaded');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Upload failed');
@@ -237,7 +237,7 @@ export default function BulkAddQuestionsModal({ open, onClose, categories, onSuc
           const isRequired = q.type !== 'boolean' || optIdx < 2;
           return isRequired && !hasText && !hasImage;
         });
-        
+
         if (emptyOpt !== -1) {
           toast.error(`Question ${i + 1}: Please fill text or upload an image for Option ${String.fromCharCode(65 + emptyOpt)}`);
           return;
@@ -266,7 +266,7 @@ export default function BulkAddQuestionsModal({ open, onClose, categories, onSuc
       onClose();
       // Reset
       setQuestions([
-        emptyQuestion(defaultCat, globalDifficulty), 
+        emptyQuestion(defaultCat, globalDifficulty),
         emptyQuestion(defaultCat, globalDifficulty)
       ]);
     } catch (error: any) {

@@ -8,10 +8,13 @@ import toast, { Toaster } from 'react-hot-toast';
 import { Layers, CircleHelp, Users, ArrowUpRight, Loader2, Activity, Target, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+
 export default function DashboardPage() {
   const [stats, setStats] = useState<any>(null);
   const [categoryStats, setCategoryStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+
 
   useEffect(() => {
     fetchStats();
@@ -44,6 +47,7 @@ export default function DashboardPage() {
 
   return (
     <DashboardLayout>
+
       <Toaster position="top-right" />
       <div className="p-8">
         <div className="mb-8">

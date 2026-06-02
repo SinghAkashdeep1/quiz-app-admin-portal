@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Skeleton, CategorySkeleton } from '@/components/Skeleton';
 import DynamicText from '@/components/DynamicText';
 
+
 const ITEMS_PER_PAGE = 9;
 
 interface Category {
@@ -70,6 +71,7 @@ interface Icon {
 }
 
 export default function CategoriesPage() {
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [icons, setIcons] = useState<Icon[]>([]);
@@ -124,7 +126,6 @@ export default function CategoriesPage() {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetchCategories();
     fetchIcons();
 
     const handleClickOutside = (event: MouseEvent) => {
@@ -299,12 +300,16 @@ export default function CategoriesPage() {
       }
     }
     setSubmitting(true);
+    const payload = {
+      ...formData,
+      name: formData.name.trim()
+    };
     try {
       if (editingCategory) {
-        await api.put(`/categories/${editingCategory._id}`, formData);
+        await api.put(`/categories/${editingCategory._id}`, payload);
         toast.success('Category updated');
       } else {
-        await api.post('/categories', formData);
+        await api.post('/categories', payload);
         toast.success('Category created');
       }
       setModalOpen(false);
@@ -346,6 +351,7 @@ export default function CategoriesPage() {
 
   return (
     <DashboardLayout>
+
       <div className="p-8">
         <Toaster position="top-right" />
 

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import api from '@/lib/api';
 import { Users, Search, Plus, Loader2, Edit2, Trash2, X, Eye, EyeOff, AlertTriangle } from 'lucide-react';
+import Pagination from '@/components/Pagination';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import { useSearchParams } from 'next/navigation';
@@ -28,6 +29,10 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(roleParam === 'guest' ? 'guest' : '');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [itemsPerPage] = useState(10);
+  const [isFetching, setIsFetching] = useState(false);
 
   // Modals state
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -45,17 +50,37 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   useEffect(() => {
-    fetchUsers();
+    fetchUsers(true);
   }, []);
 
-  const fetchUsers = async () => {
+  useEffect(() => {
+    fetchUsers();
+  }, [currentPage]);
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+      } else {
+        fetchUsers();
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const fetchUsers = async (initial = false) => {
+    if (initial) setLoading(true);
+    setIsFetching(true);
     try {
-      const res = await api.get('/admin/users');
-      setUsers(res.data);
+      const res = await api.get(`/admin/users?page=${currentPage}&limit=${itemsPerPage}&search=${search}`);
+      setUsers(res.data.users);
+      setTotalCount(res.data.totalCount);
     } catch (error) {
       toast.error('Failed to fetch users');
     } finally {
       setLoading(false);
+      setIsFetching(false);
     }
   };
 
@@ -121,18 +146,7 @@ export default function UsersPage() {
     }
   };
 
-  const filteredUsers = users.filter(u => {
-    // If roleParam is present, filter by role
-    if (roleParam && u.role !== roleParam) return false;
-
-    // Then filter by search term
-    const term = search.toLowerCase();
-    return (
-      (u.username && u.username.toLowerCase().includes(term)) ||
-      (u.email && u.email.toLowerCase().includes(term)) ||
-      (u.guestId && u.guestId.toLowerCase().includes(term))
-    );
-  });
+  const filteredUsers = users; // Filtering is now handled on the server
 
   return (
     <DashboardLayout>
@@ -167,8 +181,9 @@ export default function UsersPage() {
                 className="w-full bg-surface border border-border rounded-xl pl-12 pr-4 py-3 text-foreground focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all placeholder:text-text-muted"
               />
             </div>
-            <div className="text-sm text-text-muted font-medium">
-              {filteredUsers.length} Users
+            <div className="text-sm text-text-muted font-medium flex items-center gap-2">
+              {isFetching && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
+              {totalCount} Total Users
             </div>
           </div>
 
@@ -259,6 +274,15 @@ export default function UsersPage() {
               </table>
             )}
           </div>
+          
+          <Pagination
+            currentPage={currentPage}
+            totalPages={Math.ceil(totalCount / itemsPerPage)}
+            totalItems={totalCount}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            itemLabel="users"
+          />
         </div>
       </div>
 

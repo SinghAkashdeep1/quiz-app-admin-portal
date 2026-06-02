@@ -8,9 +8,9 @@ import { Plus, Edit2, Trash2, Filter, Loader2, Save, X, AlertTriangle, CopyPlus,
 import BulkAddQuestionsModal from '@/components/BulkAddQuestionsModal';
 import Pagination from '@/components/Pagination';
 import toast, { Toaster } from 'react-hot-toast';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Skeleton, QuestionSkeleton } from '@/components/Skeleton';
 import DynamicText from '@/components/DynamicText';
+
 
 const ITEMS_PER_PAGE = 9;
 
@@ -47,7 +47,10 @@ export default function QuestionsPage() {
   );
 }
 
+import { motion, AnimatePresence } from 'framer-motion';
+
 function QuestionsList() {
+
   const [questions, setQuestions] = useState<Question[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -336,12 +339,16 @@ function QuestionsList() {
     }
 
     setSubmitting(true);
+    const payload = {
+      ...formData,
+      text: formData.text.trim()
+    };
     try {
       if (editingQuestion) {
-        await api.put(`/questions/${editingQuestion._id}`, formData);
+        await api.put(`/questions/${editingQuestion._id}`, payload);
         toast.success('Question updated');
       } else {
-        await api.post('/questions', formData);
+        await api.post('/questions', payload);
         toast.success('Question created');
       }
       setModalOpen(false);
@@ -392,6 +399,7 @@ function QuestionsList() {
 
   return (
     <DashboardLayout>
+
       <div className="p-8">
         <Toaster position="top-right" />
 
