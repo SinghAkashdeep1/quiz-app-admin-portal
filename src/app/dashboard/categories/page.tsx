@@ -202,7 +202,10 @@ export default function CategoriesPage() {
           medium: 20,
           hard: 50
         },
-        guestHeartsConfig: category.guestHeartsConfig || {
+        guestHeartsConfig: category.guestHeartsConfig ? {
+          ...category.guestHeartsConfig,
+          dailyRefillLimit: category.guestHeartsConfig.dailyRefillLimit ?? 3
+        } : {
           maxHearts: 3,
           refillCount: 3,
           refillCooldownHours: 14,

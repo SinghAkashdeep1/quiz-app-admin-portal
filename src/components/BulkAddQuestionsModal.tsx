@@ -464,7 +464,7 @@ export default function BulkAddQuestionsModal({ open, onClose, categories, onSuc
                           onChange={(e) => {
                             const newType = e.target.value as 'mcq' | 'boolean' | 'image' | 'multiple_correct' | 'matching';
                             let newOptions = [...q.options];
-                            let newCorrectIndex = q.correctAnswerIndex;
+                            let newCorrectIndex = q.correctAnswerIndex ?? 0;
                             if (newType === 'boolean') {
                               newOptions = ['True', 'False', '', ''];
                               if (newCorrectIndex > 1) newCorrectIndex = 0;

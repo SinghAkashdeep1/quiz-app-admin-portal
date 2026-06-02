@@ -3,9 +3,11 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '@/lib/api';
 
+import type { ElementType } from 'react';
+
 interface DynamicTextProps {
   children: string;
-  as?: keyof JSX.IntrinsicElements;
+  as?: ElementType;
   className?: string;
 }
 

@@ -34,7 +34,6 @@ interface Question {
   difficulty: 'easy' | 'medium' | 'hard';
   weightage: number;
   timeLimit: number;
-  timeLimit: number;
   optionImages?: string[];
   isAlternative: boolean;
 }
@@ -303,7 +302,7 @@ function QuestionsList() {
 
       // Check if correct answer points to a filled option
       if (formData.type === 'multiple_correct') {
-        const invalidIndices = formData.correctAnswerIndices.filter(idx => 
+        const invalidIndices = formData.correctAnswerIndices.filter(idx =>
           !filledOptions.some(o => o.index === idx)
         );
         if (invalidIndices.length > 0) {
@@ -317,7 +316,7 @@ function QuestionsList() {
         }
       }
     }
-    
+
     if (formData.type === 'multiple_correct') {
       if (formData.correctAnswerIndices.length < 2) {
         toast.error('Please select at least 2 correct answers for multiple correct type');
@@ -415,11 +414,10 @@ function QuestionsList() {
           <div className="flex gap-3">
             <button
               onClick={() => setShowArchived(!showArchived)}
-              className={`px-5 py-3 rounded-xl flex items-center gap-2 font-semibold transition-all active:scale-95 border ${
-                showArchived 
-                ? "bg-amber-500/10 border-amber-500/50 text-amber-500" 
-                : "bg-surface border-border text-text-muted hover:border-primary/50"
-              }`}
+              className={`px-5 py-3 rounded-xl flex items-center gap-2 font-semibold transition-all active:scale-95 border ${showArchived
+                  ? "bg-amber-500/10 border-amber-500/50 text-amber-500"
+                  : "bg-surface border-border text-text-muted hover:border-primary/50"
+                }`}
             >
               <Tag className="w-5 h-5" />
               <DynamicText>{showArchived ? "View Active" : "View Archive"}</DynamicText>
@@ -541,16 +539,15 @@ function QuestionsList() {
                 const categoryData = (typeof q.categoryId === 'object' && q.categoryId !== null) ? q.categoryId as any : null;
                 const catName = categoryData ? categoryData.name : categories.find(c => c._id === q.categoryId)?.name || 'Unknown';
                 const isCatArchived = categoryData?.isArchived;
-                
+
                 return (
                   <motion.div
                     key={q._id}
                     layout
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className={`bg-surface border rounded-2xl p-6 group transition-all shadow-sm ${
-                      showArchived ? "border-amber-500/20 grayscale-[0.5]" : "border-border hover:border-primary/30"
-                    }`}
+                    className={`bg-surface border rounded-2xl p-6 group transition-all shadow-sm ${showArchived ? "border-amber-500/20 grayscale-[0.5]" : "border-border hover:border-primary/30"
+                      }`}
                   >
                     <div className="flex justify-between items-start gap-4">
                       <div className="flex-1">
@@ -661,11 +658,10 @@ function QuestionsList() {
                           <>
                             <button
                               onClick={() => handleRestore(q._id)}
-                              className={`p-2 rounded-lg transition-colors border flex items-center justify-center ${
-                                isCatArchived 
-                                ? "text-gray-500 border-gray-500/20 cursor-not-allowed opacity-50" 
-                                : "text-green-500 border-green-500/20 hover:bg-green-500/10"
-                              }`}
+                              className={`p-2 rounded-lg transition-colors border flex items-center justify-center ${isCatArchived
+                                  ? "text-gray-500 border-gray-500/20 cursor-not-allowed opacity-50"
+                                  : "text-green-500 border-green-500/20 hover:bg-green-500/10"
+                                }`}
                               title={isCatArchived ? "Restore Category First" : "Restore Question"}
                               disabled={isCatArchived}
                             >
@@ -995,7 +991,7 @@ function QuestionsList() {
                     </div>
                   )}
 
-                {/* Translations removed - will be handled by AI dynamically */}
+                  {/* Translations removed - will be handled by AI dynamically */}
                 </div>
 
                 <div className="flex gap-4 p-8 border-t border-border bg-surface rounded-b-2xl">

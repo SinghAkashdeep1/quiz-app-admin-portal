@@ -1,0 +1,49 @@
+Vercel CLI 54.7.1 (Node.js 20.19.6)
+Retrieving project…
+Deploying test-cicd-team/quiz-admin-portal
+Uploading [--------------------] (0.0B/101B)
+Uploading [====================] (101.0B/101B)
+  Inspect     https://vercel.com/test-cicd-team/quiz-admin-portal/5LURRyX6541WyZzWfCyu6V5kmkxt
+▲ Production  https://quiz-admin-portal-lbk347woa-test-cicd-team.vercel.app
+https://quiz-admin-portal-lbk347woa-test-cicd-team.vercel.appBuilding…
+Building…
+Running build in Washington, D.C., USA (East) – iad1
+Build machine configuration: 4 cores, 8 GB
+Retrieving list of deployment files...
+Previous build caches not available.
+Downloading 38 deployment files...
+Running "vercel build"
+Vercel CLI 54.4.1
+Installing dependencies...
+added 391 packages in 11s
+149 packages are looking for funding
+run `npm fund` for details
+Detected Next.js version: 16.2.4
+Running "npm run build"
+> admin-portal@0.1.0 build
+> next build
+Applying modifyConfig from Vercel
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+▲ Next.js 16.2.4 (Turbopack)
+Creating an optimized production build ...
+✓ Compiled successfully in 4.2s
+Running TypeScript ...
+Failed to type check.
+./src/app/dashboard/categories/page.tsx:205:9
+Type error: Type '{ maxHearts: number; refillCount: number; refillCooldownHours: number; dailyRefillLimit?: number | undefined; rewards: { easy: number; medium: number; hard: number; }; }' is not assignable to type '{ maxHearts: number; refillCount: number; refillCooldownHours: number; dailyRefillLimit: number; rewards: { easy: number; medium: number; hard: number; }; }'.
+Types of property 'dailyRefillLimit' are incompatible.
+Type 'number | undefined' is not assignable to type 'number'.
+Type 'undefined' is not assignable to type 'number'.
+203 |           hard: 50
+204 |         },
+> 205 |         guestHeartsConfig: category.guestHeartsConfig || {
+|         ^
+206 |           maxHearts: 3,
+207 |           refillCount: 3,
+208 |           refillCooldownHours: 14,
+Next.js build worker exited with code: 1 and signal: null
+Error: Command "npm run build" exited with 1
+Error: Command "npm run build" exited with 1
